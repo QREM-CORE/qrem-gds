@@ -1,0 +1,90 @@
+[cite_start]Here is the revised, completely project-agnostic version of the guide, adapted for a native Ubuntu Linux environment[cite: 1]. [cite_start]It uses clear placeholder tags (like `<your_top_module>`) so you can drop this directly into any future repository's `README.md` as a universal template for the LibreLane RTL-to-GDSII pipeline[cite: 2].
+
+---
+
+### Step 1: Prepare the RTL (Flattening SystemVerilog)
+[cite_start]Open-source ASIC synthesis tools prefer standard Verilog-2005[cite: 3]. [cite_start]If your project uses advanced SystemVerilog features (interfaces, multi-dimensional arrays, etc.), it must be compiled down to a single, flat Verilog file first[cite: 4]. [cite_start]*(If your project is already written in pure Verilog, you can skip this step)*[cite: 5].
+
+1. [cite_start]Ensure you are in the root directory of your project repository[cite: 5].
+2. [cite_start]Run `sv2v` to flatten the hierarchy and expand all macros[cite: 6]:
+```bash
+sv2v <top_module.sv> <sub_module_1.sv> <sub_module_2.sv> > flattened_design.v
+```
+
+### Step 2: Install Docker Engine
+Install the Docker Engine natively on your Ubuntu system.
+
+1. [cite_start]Download and run the official automated installation script[cite: 7]:
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
+2. [cite_start]Grant your user permission to run containers without requiring root access[cite: 7]:
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+*(Note: Unlike WSL, native Ubuntu uses systemd, so the Docker daemon will automatically start in the background and on boot).*
+
+### Step 3: Install LibreLane
+[cite_start]LibreLane acts as the Python-based orchestrator, executing the heavy EDA tools inside the Docker container[cite: 9]. [cite_start]To avoid conflicting with Ubuntu's strict system packages, install it inside an isolated virtual environment[cite: 9].
+
+1. [cite_start]Create and activate a Python virtual environment[cite: 10]:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+2. [cite_start]Install the LibreLane package via `pip`[cite: 10]:
+```bash
+pip install librelane
+```
+
+### Step 4: Configure the Physical Layout Constraints
+[cite_start]Create a directory named `librelane` and create a configuration file inside it called `config.json`[cite: 11]. [cite_start]This configuration file tells the tool which module is the top of your hierarchy, what clock speed to target, and how dense to pack the physical logic gates (utilization)[cite: 11].
+
+[cite_start]**File:** `./librelane/config.json` [cite: 12]
+```json
+{
+    "DESIGN_NAME": "<your_top_module_name>",
+    "VERILOG_FILES": [
+        "dir::flattened_design.v"
+    ],
+    "CLOCK_PORT": "clk",
+    "CLOCK_PERIOD": 20.0,
+    "FP_SIZING": "relative",
+    "FP_CORE_UTIL": 50
+}
+```
+[cite_start]*(Note: A `FP_CORE_UTIL` of 50 is a safe starting point[cite: 12]. [cite_start]If the router crashes with congestion errors, lower this number to give the wiring more physical space)*[cite: 12].
+
+### Step 5: Execute the RTL-to-GDSII Pipeline
+[cite_start]With the environment active and the configuration set, launch the flow[cite: 13].
+
+```bash
+python3 -m librelane --dockerized ./librelane/config.json
+```
+[cite_start]*Note: The very first time this command runs on a new machine, it will pause for several minutes to download the 5GB+ open-source EDA toolchain and the Sky130 Process Design Kit (PDK)*[cite: 13]. [cite_start]*Subsequent runs will start instantly*[cite: 14].
+
+### Step 6: Extract the Results
+[cite_start]Once the terminal finishes printing the pipeline steps, a new specific run folder will appear in your repository: `librelane/runs/RUN_YYYY-MM-DD_HH-MM-SS/`[cite: 15]. [cite_start]Navigate into this run folder to find your deliverables[cite: 15]:
+
+* [cite_start]**The Engineering Stats:** Open `final/metrics.csv` to find your final core area, total die area, and physical instance (gate) count[cite: 15].
+* [cite_start]**The Silicon Manufacturing File:** Locate your final layout at `final/gds/<your_top_module_name>.gds`[cite: 16].
+
+### Step 7: View the Silicon Blueprint
+You can view the resulting `.gds` file natively on your Ubuntu machine using KLayout.
+
+1. Install the KLayout viewer directly from the Ubuntu repositories:
+```bash
+sudo apt update
+sudo apt install klayout
+```
+2. [cite_start]Copy the official SkyWater 130nm color palette from LibreLane's hidden downloaded files into your main project directory[cite: 18]:
+```bash
+find ~/.ciel -name "sky130A.lyp" -exec cp {} ./ \;
+```
+3. Launch the **KLayout** application.
+4. Open your `<your_top_module_name>.gds` file directly in KLayout.
+5. [cite_start]Go to **File** > **Load Layer Properties** and select the `sky130A.lyp` file you just copied over[cite: 20].
+6. [cite_start]Press **`*` (Shift + 8)** to expand the internal geometry hierarchy so all standard cells are visible[cite: 21].
+7. [cite_start]Press **`F2`** to center and zoom fit the silicon die on your screen[cite: 22].
